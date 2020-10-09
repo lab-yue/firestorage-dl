@@ -6,33 +6,36 @@ import { pipeline } from "stream";
 import Progress from "progress";
 const streamPipeline = util.promisify(pipeline);
 
-async function dl(link: string) {
-  const res1 = await fetch(link);
-  const text1 = await res1.text();
-  const [, link1] = text1.match(/<a href="(.+?)">/) || [];
-  //   console.log({ text1, link1 });
+async function fetchAndExtract(
+  url: string,
+  regex: RegExp
+): Promise<RegExpMatchArray> {
+  const res = await fetch(url);
+  const text = await res.text();
+  //   console.log({ text, link });
+  return text.match(regex) || [];
+}
+
+async function dl(url: string) {
+  const [, link1] = await fetchAndExtract(url, /<a href="(.+?)">/);
   if (!link1) return;
 
-  const res2 = await fetch(link1);
-  const text2 = await res2.text();
-  const [, link2] =
-    text2.match(/<a href="(https:\/\/firestorage.jp\/download\/.+?)">/) || [];
-  //   console.log({ text2, link2 });
+  const [, link2] = await fetchAndExtract(
+    link1,
+    /<a href="(https:\/\/firestorage.jp\/download\/.+?)">/
+  );
   if (!link2) return;
 
-  const res3 = await fetch(link2);
-  const text3 = await res3.text();
-  const [, link3] = text3.match(/<a href="\/(download\/.+?)">/) || [];
-  //   console.log({ text3, link3 });
+  const [, link3] = await fetchAndExtract(
+    link2,
+    /<a href="\/(download\/.+?)">/
+  );
   if (!link3) return;
 
-  const res4 = await fetch(`https://firestorage.jp/${link3}`);
-  const text4 = await res4.text();
-  const [, link4, filename] =
-    text4.match(
-      /href="(https?:\/\/.+?\.firestorage\.jp\/download.+?)"[\s\S]+?>([\s\S]+?)</
-    ) || [];
-  //   console.log({ text4, link4, filename });
+  const [, link4, filename] = await fetchAndExtract(
+    `https://firestorage.jp/${link3}`,
+    /href="(https?:\/\/.+?\.firestorage\.jp\/download.+?)"[\s\S]+?>([\s\S]+?)</
+  );
   if (!(link4 && filename)) return;
   const res5 = await fetch(link4);
   if (!res5.ok) return;
